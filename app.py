@@ -6,7 +6,7 @@ import tempfile
 import yt_dlp
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv('.env')
 
 # Function to get API key from Streamlit secrets or environment
 def get_openai_api_key():
@@ -14,7 +14,7 @@ def get_openai_api_key():
     try:
         # Try Streamlit secrets first (for cloud deployment)
         return st.secrets["OPENAI_API_KEY"]
-    except:
+    except Exception:
         # Fallback to environment variable
         return os.getenv("OPENAI_API_KEY")
 
@@ -39,7 +39,19 @@ def extract_video_id(url):
     return None
 
 def extract_audio_from_youtube(url):
-    """Extract audio from YouTube video using yt-dlp"""
+    """
+    Extract audio from YouTube video using yt-dlp.
+    
+    Downloads the best available audio format from a YouTube video and returns
+    the audio data as bytes. Uses temporary files for processing and includes
+    error handling for common YouTube access issues.
+    
+    Args:
+        url (str): YouTube video URL
+        
+    Returns:
+        bytes or None: Audio data in binary format, or None if extraction fails
+    """
     try:
         with tempfile.TemporaryDirectory() as temp_dir:
             audio_path = os.path.join(temp_dir, "audio.%(ext)s")
@@ -97,7 +109,19 @@ def extract_audio_from_youtube(url):
         return None
 
 def transcribe_audio(audio_data):
-    """Transcribe audio using OpenAI Whisper API"""
+    """
+    Transcribe audio using OpenAI Whisper API.
+    
+    Takes binary audio data and converts it to text using OpenAI's Whisper model.
+    Creates a temporary file for the audio data during processing and handles
+    cleanup automatically.
+    
+    Args:
+        audio_data (bytes): Binary audio data to transcribe
+        
+    Returns:
+        str or None: Transcribed text, or None if transcription fails
+    """
     try:
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
@@ -126,7 +150,19 @@ def transcribe_audio(audio_data):
         return None
 
 def summarize_text(text, max_length=500):
-    """Summarize text using OpenAI GPT"""
+    """
+    Summarize text using OpenAI GPT-3.5-turbo.
+    
+    Takes a text string and generates a concise summary using OpenAI's GPT model.
+    Automatically truncates overly long input text to stay within token limits.
+    
+    Args:
+        text (str): Text to summarize
+        max_length (int): Target length for summary in words (default: 500)
+        
+    Returns:
+        str: Generated summary, or error message if summarization fails
+    """
     try:
         client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
@@ -149,6 +185,13 @@ def summarize_text(text, max_length=500):
         return f"Error summarizing text: {str(e)}"
 
 def main():
+    """
+    Main application function that handles the Streamlit UI and workflow.
+    
+    Creates the web interface for the YouTube transcriber and summarizer,
+    processes user input, and coordinates the audio extraction, transcription,
+    and summarization pipeline.
+    """
     st.title("📺 YouTube Transcriber & Summarizer")
     st.write("Enter a YouTube URL to extract audio, transcribe it using AI, and get an AI-powered summary.")
     
@@ -247,12 +290,13 @@ def main():
             st.write(summary)
             
             # Download summary
-            st.download_button(
-                label="📥 Download Summary",
-                data=summary,
-                file_name=f"youtube_summary_{video_id}.txt",
-                mime="text/plain"
-            )
+            if summary:
+                st.download_button(
+                    label="📥 Download Summary",
+                    data=summary,
+                    file_name=f"youtube_summary_{video_id}.txt",
+                    mime="text/plain"
+                )
         
         with tab2:
             st.subheader("Full Transcript")
